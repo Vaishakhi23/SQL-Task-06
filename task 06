@@ -1,0 +1,98 @@
+-- DROP existing tables if any
+DROP TABLE IF EXISTS Borrow;
+DROP TABLE IF EXISTS Books;
+DROP TABLE IF EXISTS Members;
+
+-- Create Members table
+CREATE TABLE Members (
+    MemberID INTEGER PRIMARY KEY,
+    MemberName TEXT NOT NULL,
+    MembershipDate DATE
+);
+
+-- Create Books table
+CREATE TABLE Books (
+    BookID INTEGER PRIMARY KEY,
+    Title TEXT NOT NULL,
+    Author TEXT,
+    Category TEXT
+);
+
+-- Create Borrow table
+CREATE TABLE Borrow (
+    BorrowID INTEGER PRIMARY KEY,
+    MemberID INTEGER,
+    BookID INTEGER,
+    BorrowDate DATE,
+    ReturnDate DATE,
+    FOREIGN KEY (MemberID) REFERENCES Members(MemberID),
+    FOREIGN KEY (BookID) REFERENCES Books(BookID)
+);
+
+-- Insert sample Members
+INSERT INTO Members (MemberID, MemberName, MembershipDate) VALUES
+(1, 'Alice', '2023-01-01'),
+(2, 'Bob', '2023-02-01'),
+(3, 'Charlie', '2023-03-01'),
+(4, 'David', '2023-04-01');
+
+-- Insert sample Books
+INSERT INTO Books (BookID, Title, Author, Category) VALUES
+(101, 'The Alchemist', 'Paulo Coelho', 'Fiction'),
+(102, 'Data Structures', 'Narasimha Karumanchi', 'Education'),
+(103, 'Clean Code', 'Robert C. Martin', 'Programming'),
+(104, 'Sapiens', 'Yuval Noah Harari', 'History');
+
+-- Insert sample Borrow records
+INSERT INTO Borrow (BorrowID, MemberID, BookID, BorrowDate, ReturnDate) VALUES
+(201, 1, 101, '2023-05-01', '2023-05-10'),
+(202, 2, 103, '2023-05-02', '2023-05-11'),
+(203, 1, 104, '2023-05-03', NULL),
+(204, 3, 102, '2023-05-04', '2023-05-15');
+
+-- 1. Scalar Subquery in SELECT: Total books borrowed per member
+SELECT 
+    MemberID,
+    MemberName,
+    (SELECT COUNT(*) FROM Borrow WHERE Borrow.MemberID = Members.MemberID) AS TotalBooksBorrowed
+FROM Members;
+
+-- 2. Subquery in WHERE using IN: Members who borrowed programming books
+SELECT MemberName
+FROM Members
+WHERE MemberID IN (
+    SELECT MemberID FROM Borrow
+    WHERE BookID IN (
+        SELECT BookID FROM Books WHERE Category = 'Programming'
+    )
+);
+
+-- 3. EXISTS Subquery: Members who have borrowed at least one book
+SELECT MemberName
+FROM Members M
+WHERE EXISTS (
+    SELECT 1 FROM Borrow B WHERE B.MemberID = M.MemberID
+);
+
+-- 4. NOT EXISTS Subquery: Members who never borrowed a book
+SELECT MemberName
+FROM Members M
+WHERE NOT EXISTS (
+    SELECT 1 FROM Borrow B WHERE B.MemberID = M.MemberID
+);
+
+-- 5. Correlated Subquery: Borrow records where borrow date > membership date
+SELECT BorrowID, MemberID, BookID, BorrowDate
+FROM Borrow B
+WHERE BorrowDate > (
+    SELECT MembershipDate FROM Members M WHERE M.MemberID = B.MemberID
+);
+
+-- 6. Subquery in FROM clause: List books with number of times borrowed
+SELECT B.Title, BR.BorrowCount
+FROM Books B
+JOIN (
+    SELECT BookID, COUNT(*) AS BorrowCount
+    FROM Borrow
+    GROUP BY BookID
+) BR ON B.BookID = BR.BookID;
